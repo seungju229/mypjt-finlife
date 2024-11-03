@@ -5,7 +5,7 @@ from django.conf import settings
 import requests
 from .models import DepositOptions, DepositProducts
 from .serializers import DepositOptionsSerializer, DepositProductsSerializer
-
+from rest_framework import status
 
 
 
@@ -100,18 +100,24 @@ def save_deposit_products(request):
 
 
 
-
-
-
-
-
 @api_view(['GET', 'POST'])
 def deposit_products(request):
-    pass
-
+    if request.method == 'GET':
+        products = DepositProducts.objects.all()
+        serializers = DepositProductsSerializer(products, many=True)
+        return Response(serializers.data)
+    elif request.method == 'POST':
+        serializers = DepositProductsSerializer(data=request.data)
+        if serializers.is_valid():
+            serializers.save()
+            return Response(serializers.data, status=status.HTTP_201_CREATED)
+        return Response({ 'message': '이미 있는 데이터이거나, 데이터가 잘못 입력되었습니다.' }, status=status.HTTP_400_BAD_REQUEST)
+    
 @api_view(['GET'])
-def deposit_products_options(request):
-    pass
+def deposit_products_options(request, fin_prdt_cd):
+    options = DepositOptions.objects.filter(fin_prdt_cd=fin_prdt_cd)
+    serializers = DepositOptionsSerializer(options, many=True)
+    return Response(serializers.data)
 
 @api_view(['GET'])
 def top_rate(request):
