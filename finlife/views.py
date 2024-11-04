@@ -4,8 +4,10 @@ from rest_framework.response import Response
 from django.conf import settings
 import requests
 from .models import DepositOptions, DepositProducts
-from .serializers import DepositOptionsSerializer, DepositProductsSerializer
+from .serializers import DepositOptionsSerializer, DepositProductsSerializer, ProductOptionSerializer
 from rest_framework import status
+from django.db.models import Max
+
 
 
 
@@ -63,16 +65,11 @@ def save_deposit_products(request):
         product = DepositProducts.objects.get(fin_prdt_cd=fin_prdt_cd)
         print(fin_prdt_cd, intr_rate_type_nm, intr_rate, intr_rate2, save_trm, product)
 
-        if save_trm == None:
-            save_trm = -1
-
-        for value in (intr_rate, intr_rate2):
-            if value == None:
-                value = -1.0
-        for value in (fin_prdt_cd, intr_rate_type_nm):
-            if value == None:
-                value = '-1'
-
+        # 비어있는 필드에 대한 기본값 설정
+        intr_rate_type_nm = li.get('intr_rate_type_nm', '-1')
+        intr_rate = li.get('intr_rate', -1.0) if li.get('intr_rate') is not None else -1.0
+        intr_rate2 = li.get('intr_rate2', -1.0) if li.get('intr_rate2') is not None else -1.0
+        save_trm = li.get('save_trm', -1) if li.get('save_trm') is not None else -1
 
 
         if DepositOptions.objects.filter(
@@ -121,5 +118,12 @@ def deposit_products_options(request, fin_prdt_cd):
 
 @api_view(['GET'])
 def top_rate(request):
-    pass
+    if request.method == 'GET':
+        top_rate = DepositOptions.objects.aggregate(intr_rate2=Max('intr_rate2'))
+        # queryset이 아닌. '컬럼명'만 들어있는 dictionary 형태로 반환된다.
+        # top_rate['intr_rate2'] 으로 사용하면 됨.
+        option = DepositOptions.objects.get(intr_rate2=top_rate['intr_rate2'])
+        product = DepositProducts.objects.filter(pk=option.product_id)
+        serializer = ProductOptionSerializer(product, many=True)
+        return Response(serializer.data)
 
